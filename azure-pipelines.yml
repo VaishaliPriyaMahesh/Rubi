@@ -10,10 +10,51 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+- task: UseRubyVersion@0
+  inputs:
+    versionSpec: '>= 2.7.0'
+    addToPath: true
+- script: |
+    sudo apt install freetds-dev
+    sudo apt install libpq-dev
+    sudo apt install sqlite3 libsqlite3-dev
+    sudo apt install postgresql postgresql-contrib
+  displayName: 'lib for tiny_tds, postgres'
 
 - script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+    sudo -i -u postgres psql -c "CREATE USER user WITH PASSWORD 'pppppp';"
+    sudo -i -u postgres psql -c "ALTER USER user WITH SUPERUSER;"
+    sudo -i -u postgres psql -c "CREATE DATABASE db WITH OWNER = user;"
+    sudo -i -u postgres psql -c "CREATE DATABASE db_test WITH OWNER = user;"
+  displayName: 'create pg user & db'
+
+- script: |
+    echo "gem: --no-document" > ~/.gemrc
+    gem install bundler
+    bundle install --retry=3 --jobs=4
+  displayName: 'bundle install'
+
+- script: rails db:migrate RAILS_ENV=test
+  displayName: 'db migrate ENV=test'
+
+
+- script: bundle exec rake
+  displayName: 'bundle exec rake'
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/TEST-*.xml'
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: '$(agent.builddirectory)'
+    Contents: '**'
+    TargetFolder: '$(build.artifactstagingdirectory)'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
+  
+  
