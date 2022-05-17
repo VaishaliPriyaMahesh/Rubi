@@ -11,8 +11,9 @@ pool:
 
 steps:
 - task: UseRubyVersion@0
+  inputs:
+    versionSpec: '= 2.5'
 
-    
 - script: |
     sudo apt install freetds-dev
     sudo apt install libpq-dev
